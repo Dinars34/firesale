@@ -1,20 +1,20 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
 const windows = new Set();
 const openFiles = new Map();
 
-
-
 app.on('ready', () => {
+    const applicationMenu = require('./application-menu');
+    Menu.setApplicationMenu(applicationMenu);
     createWindow();
 });
 
 app.on('window-all-closed', () => {
     if (process.platform === 'darwin') {
         return false;
-    } 
+    }
     app.quit();
 });
 
@@ -41,10 +41,10 @@ ipcMain.on('new-file-dialog', () => {
 ipcMain.on('file-edited-state', (event, isEdited, currentFilePath) => {
 
     const targetWindow = BrowserWindow.fromWebContents(event.sender);
-    const fileName = currentFilePath ? path.basename(currentFilePath) : 'UnNamed File';    
-    
-    targetWindow.setTitle(`Fire Sale - ${fileName}${isEdited ? ' (edited)': ''}`);
-    targetWindow.isEdited = isEdited; 
+    const fileName = currentFilePath ? path.basename(currentFilePath) : 'UnNamed File';
+
+    targetWindow.setTitle(`Fire Sale - ${fileName}${isEdited ? ' (edited)' : ''}`);
+    targetWindow.isEdited = isEdited;
     targetWindow.setDocumentEdited(isEdited);
 });
 
@@ -62,12 +62,25 @@ ipcMain.on('open-dragged-file', (event, draggedFile) => {
     openFile(BrowserWindow.fromWebContents(event.sender), draggedFile);
 });
 
+ipcMain.on('show-context-menu', (event) => {
+    const markdownContextMenu = Menu.buildFromTemplate([
+        {label: 'Open File', click() {getFileFromUser()}},
+        {type: 'separator'},
+        {label: 'Cut', role: 'cut'},
+        {label: 'Copy', role: 'copy'},
+        {label: 'Paste', role: 'paste'},
+        {label: 'Select All', role: 'selectall'},
+    ]);
+
+    markdownContextMenu.popup();
+});
+
 const createWindow = () => {
     let x, y;
     const currentWindow = BrowserWindow.getFocusedWindow();
 
     if (currentWindow) {
-        const [ currentWindowX, currentWindowY ] = currentWindow.getPosition();
+        const [currentWindowX, currentWindowY] = currentWindow.getPosition();
         x = currentWindowX + 10;
         y = currentWindowY + 10;
     }
@@ -107,7 +120,7 @@ const createWindow = () => {
 
             if (response === 0) newWindow.destroy();
         }
-        
+
     });
 
     newWindow.on('closed', () => {
@@ -121,7 +134,7 @@ const createWindow = () => {
 };
 
 const getFileFromUser = async (targetWindow) => {
-    const files = await dialog.showOpenDialog(targetWindow, { 
+    const files = await dialog.showOpenDialog(targetWindow, {
         properties: ['openFile'],
         filters: [
             { name: 'Markdown Files', extensions: ['md', 'markdown'] },
@@ -191,7 +204,7 @@ const startWatchingFile = (targetWindow, filePath) => {
 
                 if (!targetWindow.isDestroyed()) {
                     targetWindow.webContents.send('file-changed', filePath, content);
-                } 
+                }
             } catch (err) {
                 console.error(`Failed to read changed file: ${err.message}`);
             }
@@ -207,4 +220,10 @@ const stopWatchingFile = (targetWindow) => {
         openFiles.get(targetWindow).close();
         openFiles.delete(targetWindow);
     }
+};
+
+module.exports = {
+    createWindow,
+    getFileFromUser,
+    saveMarkdown,
 };

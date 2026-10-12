@@ -82,7 +82,10 @@ document.addEventListener('dragover', event => event.preventDefault());
 document.addEventListener('dragleave', event => event.preventDefault());
 document.addEventListener('drop', event => event.preventDefault());
 
-
+markdownView.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    ipcRenderer.send('show-context-menu');
+});
 
 markdownView.addEventListener('dragover', (event) => {
     const file = getDraggedFile(event);
@@ -144,4 +147,12 @@ ipcRenderer.on('file-opened', (event, filePath, content) => {
     }
 
     renderFile(filePath, content);
+});
+
+ipcRenderer.on('save-markdown', (event) => {
+    ipcRenderer.send('save-file', currentFilePath, markdownView.value);
+});
+
+ipcRenderer.on('save-html', (event) => {
+    ipcRenderer.send('save-html', htmlView.innerHTML);
 });
