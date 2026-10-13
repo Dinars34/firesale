@@ -7,7 +7,7 @@ const openFiles = new Map();
 
 app.on('ready', () => {
     const applicationMenu = require('./application-menu');
-    Menu.setApplicationMenu(applicationMenu);
+    applicationMenu(); 
     createWindow();
 });
 
@@ -62,9 +62,11 @@ ipcMain.on('open-dragged-file', (event, draggedFile) => {
     openFile(BrowserWindow.fromWebContents(event.sender), draggedFile);
 });
 
-ipcMain.on('show-context-menu', (event) => {
+ipcMain.on('show-context-menu', (event, isFilePath) => {
     const markdownContextMenu = Menu.buildFromTemplate([
         {label: 'Open File', click() {getFileFromUser()}},
+        {label: 'Show File in Folder', click() {event.sender.send('show-file')}, enabled: isFilePath},
+        {label: 'Open in Default Editor', click() {event.sender.send('open-in-default')}, enabled: isFilePath},
         {type: 'separator'},
         {label: 'Cut', role: 'cut'},
         {label: 'Copy', role: 'copy'},
@@ -100,6 +102,11 @@ const createWindow = () => {
         newWindow.show();
     });
 
+    newWindow.on('focus', () => {
+        const applicationMenu = require('./application-menu');
+        applicationMenu();
+    });
+
     newWindow.on('close', async (event) => {
         if (newWindow.isDocumentEdited() || newWindow.isEdited) {
             event.preventDefault();
@@ -124,7 +131,9 @@ const createWindow = () => {
     });
 
     newWindow.on('closed', () => {
+        const applicationMenu = require('./application-menu');
         windows.delete(newWindow);
+        applicationMenu();
         stopWatchingFile(newWindow);
         newWindow = null;
     });
@@ -148,6 +157,7 @@ const getFileFromUser = async (targetWindow) => {
 };
 
 const openFile = (targetWindow, file) => {
+    const applicationMenu = require('./application-menu')
     const content = fs.readFileSync(file).toString();
     const fileName = path.basename(file);
 
@@ -159,6 +169,7 @@ const openFile = (targetWindow, file) => {
     app.addRecentDocument(file);
 
     targetWindow.webContents.send('file-opened', file, content);
+    applicationMenu();
 };
 
 const saveHtml = async (targetWindow, content) => {

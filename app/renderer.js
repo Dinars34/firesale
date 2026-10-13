@@ -1,5 +1,5 @@
 const marked = require('marked');
-const { ipcRenderer, webUtils } = require('electron');
+const { ipcRenderer, webUtils, shell } = require('electron');
 
 const markdownView = document.querySelector('#markdown');
 const htmlView = document.querySelector('#html');
@@ -36,8 +36,32 @@ const renderFile = (filePath, content, isEdited = false) => {
     saveFileButton.disabled = !isEdited;
     revertButton.disabled = !isEdited;
 
+    showFileButton.disabled = false;
+    openInDefaultButton.disabled = false;
+
     ipcRenderer.send('file-edited-state', isEdited, filePath);
 }
+
+const showFile = () => {
+    if (!currentFilePath) {
+        return alert('This file has not been saved to the filesystem.');
+    }
+    shell.showItemInFolder(currentFilePath);
+};
+
+const openInDefaultApplication = async () => {
+    if (!currentFilePath) {
+        return alert('This file has not been saved to the filesystem.');
+    }
+
+    // open the file in the default application set by user in the operating
+    const errorMessage = await shell.openPath(currentFilePath);
+    // handle error 
+    if (errorMessage) console.log('Failed to open file: ', errorMessage);
+};
+
+showFileButton.addEventListener('click', showFile);
+openInDefaultButton.addEventListener('click', openInDefaultApplication);
 
 saveHtmlButton.addEventListener('click', () => {
     ipcRenderer.send('save-html', htmlView.innerHTML);
@@ -84,7 +108,7 @@ document.addEventListener('drop', event => event.preventDefault());
 
 markdownView.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    ipcRenderer.send('show-context-menu');
+    ipcRenderer.send('show-context-menu', !!currentFilePath);
 });
 
 markdownView.addEventListener('dragover', (event) => {
@@ -156,3 +180,6 @@ ipcRenderer.on('save-markdown', (event) => {
 ipcRenderer.on('save-html', (event) => {
     ipcRenderer.send('save-html', htmlView.innerHTML);
 });
+
+ipcRenderer.on('show-file', showFile);
+ipcRenderer.on('open-in-default', openInDefaultApplication);
